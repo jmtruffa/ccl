@@ -3,12 +3,15 @@
 
 library(tidyquant)
 library(bizdays)
-library(tidyverse)
-library(ggthemes) # solo para las implementaciones de abajo
+library(dplyr)
+library(ggthemes)
 
 cal <- create.calendar("Argentina/ANBIMA", holidaysANBIMA, weekdays=c("saturday", "sunday"))
 final <- adjust.previous(Sys.Date(), cal)
-inicio <- adjust.previous(final - 90, cal)
+inicio <- adjust.previous(final - 180, cal)
+file = paste("~/Documents/Data/ccl/", "ccl", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
+file_prom = paste("~/Documents/Data/ccl/", "CCLProm", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
+file_grafprom = paste("~/Documents/Data/ccl/", "CCLPromGraf", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".jpg", sep='')
 
 # cargo los adr argentinos y los cedears. Cada uno viene con sus symbol, symbol_local y ratio.
 adr_argentinos <- read_csv("~/Documents/Data/ADRs_Argentinos/adr_argentinos.csv", 
@@ -47,77 +50,38 @@ afuera <- left_join(afuera, lista_activos)
 # ahora que ambos tiene su correspondiente symbolo de la otra bolsa los juntamos
 df_ccl <- left_join(local, afuera, by = c("symbol2" = "symbol", "date" = "date"))
 
-# hacemos una bajada a dir temporal para guardar la data
-file = paste("~/Documents/Data/Temp/", "ccl", inicio, "-", final, ".csv")
-write_csv(df_ccl, file, col_names = TRUE)
+
+
+
 
 # ahora tenemos en final los activos locales y su precio afuera
 # ahora vamos a calcularle el ccl
 # y luego borrarles los que tienen volumen 0
+# finalmente lo graba
 
 df_ccl <- df_ccl  %>% mutate(
   ccl = close.x * ratio.x / close.y) %>% 
   select(date, symbol, volume.x, close.x, adjusted.x, symbol2, ratio.x, volume.y, close.y, adjusted.y, ccl) %>% 
   filter (volume.x != 0)
 
+write_csv(df_ccl, file, col_names = TRUE)
 
-##################################################################
-# Hasta acá fue la rutina en sí.
-# Abajo hay pruebas de graficar
+# Acá calculo un CCL con Galicia, BMA, YPF y EDN como para tomar una referencia.
+GBYE <- df_ccl %>% select(date, symbol, close.x, symbol2, ratio.x, close.y, ccl) %>% 
+  filter(symbol == "GGAL.BA" | symbol == "BMA.BA" | symbol == "YPFD.BA" | symbol == "EDN.BA") %>% drop_na()
 
+write_csv(GBYE, file_prom, col_names = TRUE)
 
-GGAL <- df_ccl %>% filter(symbol == "GGAL.BA") %>% drop_na()
-GBYE <- df_ccl %>% filter(symbol == "GGAL.BA" | symbol == "BMA.BA" | symbol == "YPFD.BA" | symbol == "EDN.BA") %>% drop_na()
-GBYE %>% group_by(date) %>% summarise (CCL_prom = mean(ccl))
+grafprom <- GBYE %>% 
+    group_by(date) %>%
+    summarise (CCL_prom = mean(ccl)) %>%
+    ggplot(aes(x = date, y = CCL_prom)) +
+    geom_line() +
+    theme_economist() +
+    scale_x_date(date_breaks="1 month", date_labels="%Y %m") +
+    scale_color_economist() +
+    labs(title = "CCL prom con GGAL BMA YPFD EDN",
+         y = "CCL calculado con precios de Cierre", x = "")
 
-
-GBYE %>%
-  filter(date >= inicio - days(2 * n_mavg)) %>%
-  ggplot(aes(x = date, y = adjusted.x, color = symbol)) +
-  geom_line(size = 1) +
-  geom_ma(n = 15, color = "darkblue", size = 1) +
-  geom_ma(n = n_mavg, color = "red", size = 1) +
-  labs(title = "Dark Theme",
-       x = "", y = "Closing Price") +
-  coord_x_date(xlim = c(start, end)) +
-  facet_wrap(~ symbol, scales = "free_y") +
-  theme_tq_dark() +
-  scale_color_tq(theme = "dark") +
-  scale_y_continuous(labels = scales::dollar)
-
-GGAL %>%
-  ggplot(aes(x = date, y = volume.x)) +
-  geom_segment(aes(xend = date, yend = 0, color = volume.x)) +
-  geom_smooth(method = "loess", se = FALSE) +
-  theme_tq() +
-  theme(legend.position = "none") +
-  scale_y_continuous(sec.axis = sec_axis(~. / 50000, name = "CCL")) +
-  geom_line(aes(x = date, y = ccl)) +
-  labs(title = "GGAL Gráfico de Volumen",
-       subtitle = "Volumen en bolsa local",
-       y = "Volumen", x = "") 
-  
-GBYE %>% 
-  ggplot(aes(x = date, y = ccl, group=symbol, color = symbol)) +
-  geom_line(color = palette_light()[[1]])  +
-  labs(title = "CCL a través de GGAL",
-       y = "CCL calculado con precios de Cierre", x = "") +
-  theme_tq()
-
-
-GBYE %>%
-  ggplot(aes(x = date, y = ccl, color = symbol)) +
-  geom_line() +
-  #facet_wrap(~ symbol, ncol = 2, scales = "free_y") +
-  theme_tq()
-
-GBYE %>% 
-  group_by(date) %>%
-  summarise (CCL_prom = mean(ccl)) %>% 
-  ggplot(aes(x = date, y = CCL_prom)) +
-  geom_line() +
-  theme_economist() + 
-  scale_color_economist() +
-  labs(title = "CCL prom con GGAL BMA YPFD EDN",
-       y = "CCL calculado con precios de Cierre", x = "")
+ggsave(file_grafprom, grafprom)
 
