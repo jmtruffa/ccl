@@ -83,5 +83,5 @@ grafprom <- GBYE %>%
     labs(title = "CCL prom con GGAL BMA YPFD EDN",
          y = "CCL calculado con precios de Cierre", x = "")
 
-ggsave(file_grafprom, grafprom)
+ggsave(file_grafprom, grafprom, units = "mm", width = 150, height = 75)
 
