@@ -3,21 +3,22 @@
 
 library(tidyquant)
 library(bizdays)
-library(dplyr)
+library(tidyverse)
 library(ggthemes)
 
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 cal <- create.calendar("Argentina/ANBIMA", holidaysANBIMA, weekdays=c("saturday", "sunday"))
 final <- adjust.previous(Sys.Date(), cal)
 inicio <- adjust.previous(final - 180, cal)
-file = paste("~/Documents/Data/ccl/", "ccl", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
-file_prom = paste("~/Documents/Data/ccl/", "CCLProm", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
-file_grafprom = paste("~/Documents/Data/ccl/", "CCLPromGraf", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".jpg", sep='')
+file = paste("../ccl/", "ccl", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
+file_prom = paste("../ccl/", "CCLProm", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
+file_grafprom = paste("../ccl/", "CCLPromGraf", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".jpg", sep='')
 
 # cargo los adr argentinos y los cedears. Cada uno viene con sus symbol, symbol_local y ratio.
-adr_argentinos <- read_csv("~/Documents/Data/ADRs_Argentinos/adr_argentinos.csv", 
+adr_argentinos <- read_csv("../ADRs_Argentinos/adr_argentinos.csv", 
                            col_types = cols(empresa = col_skip(), 
                                             ratio = col_number()))
-cedears <- read_csv("~/Documents/Data/Cedear/cedears.csv", 
+cedears <- read_csv("../Cedear/cedears.csv", 
                     col_types = cols(Nombre = col_skip(), 
                                      Cod_Caja = col_skip(), ISIN_Cedear = col_skip(), 
                                      ISIN_Suby = col_skip(), CUSIP = col_skip(), 
