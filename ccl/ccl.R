@@ -15,9 +15,9 @@ file_prom = paste("../ccl/", "CCLProm", str_remove_all(inicio, "-"), "-", str_re
 file_grafprom = paste("../ccl/", "CCLPromGraf", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".jpg", sep='')
 
 # cargo los adr argentinos y los cedears. Cada uno viene con sus symbol, symbol_local y ratio.
-adr_argentinos <- read_csv("../ADRs_Argentinos/adr_argentinos.csv", 
-                           col_types = cols(empresa = col_skip(), 
-                                            ratio = col_number()))
+  adr_argentinos <- read_csv("../ADRs_Argentinos/adr_argentinos.csv", 
+                             col_types = cols(empresa = col_skip(), 
+                                              ratio = col_number()))
 cedears <- read_csv("../Cedear/cedears.csv", 
                     col_types = cols(Nombre = col_skip(), 
                                      Cod_Caja = col_skip(), ISIN_Cedear = col_skip(), 
@@ -32,11 +32,15 @@ lista_activos <- bind_rows(activos %>% transmute(symbol1 = symbol, symbol2 = sym
 colnames(lista_activos) <- c("symbol", "symbol2", "ratio")
 rm(activos) # lo borro
 
+# voy a restringir a los activos que necesito para ccl y nada mas porque está tardando mucho con la 
+# conexión que tengo
+lista_activos <- lista_activos %>% filter(symbol == "GGAL.BA" | symbol == "BMA.BA" | symbol == "YPFD.BA" | symbol == "EDN.BA" | symbol == "GGAL"| symbol == "BMA"| symbol == "EDN"| symbol == "YPF")
+
 # esto me devuelve un df con los precios en formato OHLCVA.
 precios <- lista_activos$symbol %>%
   tq_get(get  = "stock.prices",
          from = inicio,
-         to   = final) %>%
+         to   = final + 1) %>%
   group_by(symbol)
 
 #ahora los separo entre local y externo
@@ -66,6 +70,7 @@ df_ccl <- df_ccl  %>% mutate(
   filter (volume.x != 0)
 
 write_csv(df_ccl, file, col_names = TRUE)
+write_csv(df_ccl, 'ccl.csv', col_names = TRUE)
 
 # Acá calculo un CCL con Galicia, BMA, YPF y EDN como para tomar una referencia.
 GBYE <- df_ccl %>% select(date, symbol, close.x, symbol2, ratio.x, close.y, ccl) %>% 
