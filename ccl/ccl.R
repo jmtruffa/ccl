@@ -4,21 +4,25 @@
 library(tidyquant)
 library(bizdays)
 library(tidyverse)
-library(ggthemes)
+#library(ggthemes)
+
+returnCcl <- function(graba = FALSE, lookBack = 90)
+  {
+  
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 cal <- create.calendar("Argentina/ANBIMA", holidaysANBIMA, weekdays=c("saturday", "sunday"))
 final <- adjust.previous(Sys.Date(), cal)
-inicio <- adjust.previous(final - 180, cal)
+inicio <- adjust.previous(final - lookBack, cal)
 file = paste("../ccl/", "ccl", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
 file_prom = paste("../ccl/", "CCLProm", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".csv", sep='')
 file_grafprom = paste("../ccl/", "CCLPromGraf", str_remove_all(inicio, "-"), "-", str_remove_all(final, "-"), ".jpg", sep='')
 
 # cargo los adr argentinos y los cedears. Cada uno viene con sus symbol, symbol_local y ratio.
-  adr_argentinos <- read_csv("../ADRs_Argentinos/adr_argentinos.csv", 
+  adr_argentinos <- read_csv("~/Google Drive/analisis financieros/ccl/ADRs_Argentinos/adr_argentinos.csv", 
                              col_types = cols(empresa = col_skip(), 
                                               ratio = col_number()))
-cedears <- read_csv("../Cedear/cedears.csv", 
+cedears <- read_csv("~/Google Drive/analisis financieros/ccl/Cedear/cedears.csv", 
                     col_types = cols(Nombre = col_skip(), 
                                      Cod_Caja = col_skip(), ISIN_Cedear = col_skip(), 
                                      ISIN_Suby = col_skip(), CUSIP = col_skip(), 
@@ -56,9 +60,6 @@ afuera <- left_join(afuera, lista_activos)
 df_ccl <- left_join(local, afuera, by = c("symbol2" = "symbol", "date" = "date"))
 
 
-
-
-
 # ahora tenemos en final los activos locales y su precio afuera
 # ahora vamos a calcularle el ccl
 # y luego borrarles los que tienen volumen 0
@@ -69,19 +70,23 @@ df_ccl <- df_ccl  %>% mutate(
   select(date, symbol, volume.x, close.x, adjusted.x, symbol2, ratio.x, volume.y, close.y, adjusted.y, ccl) %>% 
   filter (volume.x != 0)
 
-write_csv(df_ccl, file, col_names = TRUE)
-write_csv(df_ccl, 'ccl.csv', col_names = TRUE)
+#write_csv(df_ccl, file, col_names = TRUE)
+
+
+ccl <- df_ccl %>% 
+  group_by(date) %>%
+  summarise (CCL_prom = mean(ccl))
+colnames(ccl) <- c('fecha', 'CCL')
+
 
 # Acá calculo un CCL con Galicia, BMA, YPF y EDN como para tomar una referencia.
-GBYE <- df_ccl %>% select(date, symbol, close.x, symbol2, ratio.x, close.y, ccl) %>% 
-  filter(symbol == "GGAL.BA" | symbol == "BMA.BA" | symbol == "YPFD.BA" | symbol == "EDN.BA") %>% drop_na()
-
-write_csv(GBYE, file_prom, col_names = TRUE)
-
-grafprom <- GBYE %>% 
-    group_by(date) %>%
-    summarise (CCL_prom = mean(ccl)) %>%
-    ggplot(aes(x = date, y = CCL_prom)) +
+# GBYE <- df_ccl %>% select(date, symbol, close.x, symbol2, ratio.x, close.y, ccl) %>% 
+#   filter(symbol == "GGAL.BA" | symbol == "BMA.BA" | symbol == "YPFD.BA" | symbol == "EDN.BA") %>% drop_na()
+# 
+# write_csv(GBYE, file_prom, col_names = TRUE)
+# 
+grafprom <- ccl %>%
+    ggplot(aes(x = fecha, y = CCL)) +
     geom_line() +
     theme_economist() +
     scale_x_date(date_breaks="1 month", date_labels="%Y %m") +
@@ -89,5 +94,14 @@ grafprom <- GBYE %>%
     labs(title = "CCL prom con GGAL BMA YPFD EDN",
          y = "CCL calculado con precios de Cierre", x = "")
 
-ggsave(file_grafprom, grafprom, units = "mm", width = 150, height = 75)
+if (graba == TRUE){
+  write_csv(df_ccl, 'ccl.csv', col_names = TRUE)
+  write_csv(ccl, 'cclProm.csv', col_names = TRUE)
+  ggsave(file_grafprom, grafprom, units = "mm", width = 150, height = 75)
+}
+
+ccl
+
+}
+
 
